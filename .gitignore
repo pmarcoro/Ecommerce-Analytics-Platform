@@ -1,0 +1,17 @@
+# Raw data
+data/raw/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Databricks
+.dbc
