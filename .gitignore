@@ -3,6 +3,7 @@ data/raw/
 
 # Python
 __pycache__/
+venv/
 *.pyc
 *.pyo
 *.pyd
