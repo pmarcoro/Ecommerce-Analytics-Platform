@@ -5,9 +5,10 @@
 -- Description:
 --   Raw ingestion of customers data from CSV
 --   Stored as Delta table with ingestion metadata
+
 -- ============================================
 
-CREATE TABLE IF NOT EXISTS marketplace_olist.bronze.order_reviews
+CREATE OR REPLACE TABLE marketplace_olist.bronze.order_reviews
 USING DELTA
 AS
 SELECT *,
@@ -15,6 +16,9 @@ SELECT *,
        'kaggle' AS source_system
 FROM read_files('/Volumes/marketplace_olist/default/raw_data/olist_order_reviews_dataset.csv',
   format => 'csv',
-  header => true
+  header => true,
+  inferSchema => true,
+  multiLine => true, -- Allows miltiline review comments
+  quote => '"',      -- Allows escaped quotes
+  escape => '"'
 );
-
