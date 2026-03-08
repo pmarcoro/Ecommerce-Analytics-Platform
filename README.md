@@ -6,19 +6,14 @@ However, technical infrastructure alone does not create value. The real impact c
 
 The objective of this project is to simulate a production-oriented data platform following the Medallion Architecture (Bronze, Silver, Gold), progressively transforming raw data into reliable analytical models that serve as the foundation for Business Intelligence and performance monitoring.
 
-The dataset used is the Olist Brazilian E-commerce dataset, which contains transactional data including customers, orders, products, sellers, payments, geolocalization and reviews.
+The dataset used is the [Olist Brazilian E-commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) from Kaggle, which contains transactional data including customers, orders, products, sellers, payments, geolocalization and reviews.
 
 # Project objectives
 Technical Objectives:
 -	Implement a layered Medallion Architecture in Databricks
--	Build clean and validated Silver tables
--	Design analytical Gold models optimized for reporting
-  
-Business & BI Objectives:
--	Define key e-commerce KPIs
--	Model fact and dimension tables for reporting
--	Build a Power BI dashboard using the Gold layer
--	Provide actionable insights on revenue performance, transport efficiency, seller performance, customer behavior, etc.
+-	Construct a Seller Operational Index, measured through late shipments, cancellations, and customer complaints.
+-	Evaluate marketplace economics based on the current Olist business model.
+-	Provide actionable insights on revenue performance, transport efficiency, opportunities of vertical integration, etc.
 
 
 
