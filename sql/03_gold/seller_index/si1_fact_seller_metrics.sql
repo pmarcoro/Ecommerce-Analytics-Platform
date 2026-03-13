@@ -109,12 +109,10 @@ GROUP BY seller_key, review_date
 
 -- COMMAND ----------
 
-CREATE OR REPLACE TABLE marketplace_olist.gold.fact_seller_metrics 
-USING DELTA
-AS
+-- DBTITLE 1,Fix PARSE_SYNTAX_ERROR in orders_reviews_daily
+CREATE OR REPLACE TABLE orders_reviews_daily AS
 
 WITH base_calendar AS (
-
     SELECT
         sc.seller_key,
         sc.reference_date,
@@ -128,7 +126,6 @@ WITH base_calendar AS (
 ),
 
 reviews_calendar AS (
-
     SELECT
         sc.seller_key,
         sc.reference_date,
@@ -142,22 +139,31 @@ reviews_calendar AS (
 ),
 
 combined_base AS (
-
     SELECT
-        bc.seller_key,
-        bc.reference_date,
-        bc.orders,
-        bc.late_shipments,
-        bc.cancelled_orders,
-        rc.reviews_day,
-        rc.claims_day,
-        rc.sum_score_day
+      bc.seller_key,
+      bc.reference_date,
+      bc.orders,
+      bc.late_shipments,
+      bc.cancelled_orders,
+      rc.reviews_day,
+      rc.claims_day,
+      rc.sum_score_day
     FROM base_calendar bc
     LEFT JOIN reviews_calendar rc
-        ON bc.seller_key = rc.seller_key
-        AND bc.reference_date = rc.reference_date
+      ON bc.seller_key = rc.seller_key
+      AND bc.reference_date = rc.reference_date
 )
 
+SELECT * FROM combined_base
+
+
+-- COMMAND ----------
+
+CREATE OR REPLACE TABLE marketplace_olist.gold.fact_seller_metrics 
+USING DELTA
+AS
+
+WITH metrics_base AS (
 SELECT
     seller_key,
     reference_date,
@@ -192,7 +198,7 @@ SELECT
         ORDER BY reference_date
         RANGE BETWEEN INTERVAL 62 DAYS PRECEDING
         AND INTERVAL 2 DAYS PRECEDING
-    ) AS total_reviews_60d,
+    ) AS reviews_60d,
 
     SUM(claims_day) OVER (
         PARTITION BY seller_key
@@ -217,5 +223,16 @@ SELECT
         ),0
     ) AS avg_review_score_60d
 
-FROM combined_base
+FROM orders_reviews_daily
+)
+
+SELECT
+  *,
+  late_shipments_30d / NULLIF(orders_30d,0) AS late_rate,
+  cancellations_30d / NULLIF(orders_30d,0) AS cancel_rate,
+  claims_60d / NULLIF(reviews_60d,0) AS claim_rate
+
+FROM metrics_base
+WHERE orders_30d > 0 OR
+  reviews_60d > 0
 ;
