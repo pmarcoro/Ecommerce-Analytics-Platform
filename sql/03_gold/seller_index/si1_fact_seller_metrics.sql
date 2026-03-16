@@ -230,7 +230,11 @@ SELECT
   *,
   late_shipments_30d / NULLIF(orders_30d,0) AS late_rate,
   cancellations_30d / NULLIF(orders_30d,0) AS cancel_rate,
-  claims_60d / NULLIF(reviews_60d,0) AS claim_rate
+  claims_60d / NULLIF(reviews_60d,0) AS claim_rate,
+
+  -- Reliability metrics based on volume of orders or reviews
+  orders_30d / (orders_30d + 20)  AS reliability_orders,
+  reviews_60d / (reviews_60d + 20) AS reliability_reviews
 
 FROM metrics_base
 WHERE orders_30d > 0 OR

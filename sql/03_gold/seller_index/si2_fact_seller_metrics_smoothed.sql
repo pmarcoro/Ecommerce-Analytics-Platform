@@ -1,4 +1,5 @@
 -- Databricks notebook source
+%sql
 CREATE OR REPLACE TABLE marketplace_olist.gold.fact_seller_metrics_smoothed
 USING DELTA
 AS
@@ -9,7 +10,7 @@ WITH parameters AS (
     15 AS alpha_reviews,
     0.0785 AS global_late_rate,
     0.0046 AS global_cancel_rate,
-    0.1427 AS global_claim_rate
+    0.1486 AS global_claim_rate
 )
 
 SELECT
