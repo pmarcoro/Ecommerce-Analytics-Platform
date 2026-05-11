@@ -14,13 +14,13 @@ WITH seller_index AS (
     claim_score,
 
     -- lineal
-    GREATEST(1, 5 - FLOOR(2 * late_component_linear + cancel_component_linear + claim_component_linear)) AS seller_index_linear,
+    GREATEST(1, 5 - FLOOR(2 * late_penalty_linear + cancel_penalty_linear + claim_penalty_linear)) AS seller_index_linear,
 
     -- quadratic
-    GREATEST(1, FLOOR(5 - FLOOR(2 *late_component_quadratic + cancel_component_quadratic + claim_component_quadratic))) AS seller_index_quadratic,
+    GREATEST(1, FLOOR(5 - FLOOR(2 *late_penalty_quadratic + cancel_penalty_quadratic + claim_penalty_quadratic))) AS seller_index_quadratic,
 
     -- sqrt
-    GREATEST(1, FLOOR(5 - FLOOR(2 * late_component_sqrt + cancel_component_sqrt + claim_component_sqrt))) AS seller_index_sqrt
+    GREATEST(1, FLOOR(5 - FLOOR(2 * late_penalty_sqrt + cancel_penalty_sqrt + claim_penalty_sqrt))) AS seller_index_sqrt
   FROM marketplace_olist.gold.fact_seller_index_components
 )
 

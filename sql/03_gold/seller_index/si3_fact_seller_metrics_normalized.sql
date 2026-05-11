@@ -29,9 +29,9 @@ SELECT
 
     -- LATE SHIPMENTS SCORE
     CASE
-        WHEN m.late_rate_smoothed <= p.late_threshold THEN 1
-        WHEN m.late_rate_smoothed >= p.late_upper THEN 0
-        ELSE 1 - (
+        WHEN m.late_rate_smoothed <= p.late_threshold THEN 0
+        WHEN m.late_rate_smoothed >= p.late_upper THEN 1
+        ELSE (
             (m.late_rate_smoothed - p.late_threshold) /
             (p.late_upper - p.late_threshold)
         )
@@ -39,9 +39,9 @@ SELECT
 
     -- CANCELLATION SCORE
     CASE
-        WHEN m.cancel_rate_smoothed <= p.cancel_threshold THEN 1
-        WHEN m.cancel_rate_smoothed >= p.cancel_upper THEN 0
-        ELSE 1 - (
+        WHEN m.cancel_rate_smoothed <= p.cancel_threshold THEN 0
+        WHEN m.cancel_rate_smoothed >= p.cancel_upper THEN 1
+        ELSE (
             (m.cancel_rate_smoothed - p.cancel_threshold) /
             (p.cancel_upper - p.cancel_threshold)
         )
@@ -49,9 +49,9 @@ SELECT
 
     -- CLAIM SCORE
     CASE
-        WHEN m.claim_rate_smoothed <= p.claim_threshold THEN 1
-        WHEN m.claim_rate_smoothed >= p.claim_upper THEN 0
-        ELSE 1 - (
+        WHEN m.claim_rate_smoothed <= p.claim_threshold THEN 0
+        WHEN m.claim_rate_smoothed >= p.claim_upper THEN 1
+        ELSE (
             (m.claim_rate_smoothed - p.claim_threshold) /
             (p.claim_upper - p.claim_threshold)
         )
