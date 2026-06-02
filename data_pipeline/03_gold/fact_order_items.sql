@@ -23,7 +23,8 @@ SELECT
     ) AS freight_ratio,
 
     -- Date
-    o.order_purchase_timestamp
+    o.order_purchase_timestamp,
+    oi.shipping_limit_date
 
 FROM marketplace_olist.silver.order_items oi
 
