@@ -1,5 +1,7 @@
 # Raw data
 data/raw/
+data/gold/
+
 
 # Python
 __pycache__/
@@ -13,6 +15,9 @@ venv/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Power BI
+*.pbix
 
 # Databricks
 .dbc
