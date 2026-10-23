@@ -1,97 +1,112 @@
-# Introduction
-In today’s data-driven economy, e-commerce platforms rely on scalable data infrastructures to transform raw transactional data into actionable business insights. This project simulates a production-oriented analytics platform built on top of the Olist Brazilian E-commerce dataset, combining data engineering, business modeling, and quantitative analysis.
+# E-commerce Analytics Platform
 
-The system is implemented using a Medallion Architecture (Bronze, Silver, Gold) in Databricks, leveraging PySpark and SQL to build reproducible and scalable data pipelines.
+**End-to-end analytics project on Databricks: a Medallion data pipeline, a point-in-time Seller Performance Index and a simulation of an incentive-based shipping cost policy for the Olist marketplace (2016–2018).**
 
-The dataset used for the analysis is the [Olist Brazilian E-commerce dataset](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) from Kaggle, which contains transactional data including customers, orders, products, sellers, payments, geolocalization and reviews.
+![Financial Analysis - Seller Index](power_bi/screenshots/03_financial_seller_index.png)
 
-# Project Objective
+## Key results
 
-The goal of this project is to design an end-to-end analytical framework that transforms raw marketplace data into structured metrics for evaluating seller performance and simulating operational incentives.
+- **Data pipeline:** Bronze → Silver → Gold pipeline in Databricks (SQL + PySpark, Delta tables). Over ~100k orders, 3,095 sellers and 96k customers.
+- **Seller Index:** daily, point-in-time score (1–5) for every active seller, based on late shipments and customer claims, with Bayesian smoothing to avoid penalizing low-volume sellers.
+- **The index predicts risk:** sellers with an index of 1–2 are late in **22%** of their shipments over the following 60 days, compared with **5%** for sellers with an index of 5.
+- **Business impact:** compared with a flat 50/50 shipping cost split used as baseline, an index-based split reduces OLIST's freight subsidy from **R$669k to R$541k (−19%)** and increases the take rate from **20.2% to 21.2%**, under identical historical demand.
 
-The project focuses on:
+## Business problem
 
-- Building a layered ELT pipeline using Databricks (Bronze–Silver–Gold)
-- Designing a Seller Operational Index to quantify seller reliability
-- Analyzing marketplace dynamics under different operational assumptions
-- Exploring the relationship between seller behavior and platform economics
+Olist connects small and medium-sized sellers with the main Brazilian marketplaces. It earns a fixed fee per item and a commission on each sale, and part of that revenue is used to cover shipping costs.
 
-# About Olist
+Late shipments and customer complaints generate extra logistics costs and damage the customer experience. The goal of the project is to design a **Seller Operational Index** that rewards reliable sellers with a higher shipping subsidy and penalizes unreliable ones, and to measure how different versions of the index would have changed OLIST's costs. The analysis measures the mechanical impact of the policy on historical data; it does not model how sellers would change their behavior in response to it.
 
-Olist is a Brazilian e-commerce startup founded in 2015 that provides a platform enabling small and medium-sized businesses to sell their products across multiple online marketplaces.
+## Architecture
 
-Rather than operating as a traditional retailer, Olist acts as an intermediary that simplifies the process of selling online for merchants by offering a centralized operational infrastructure.
+![Data pipeline](data_pipeline/data_pipeline.png)
 
-Through its platform, Olist provides several services to sellers:
+| Layer | Content |
+|---|---|
+| **Bronze** | Raw ingestion of the 9 Kaggle CSV files into Delta tables, with ingestion metadata |
+| **Silver** | Cleaning and standardization: trimmed text fields, type casting, standardized zip codes and flags for inconsistent timestamps |
+| **Gold** | Star schema (`dim_*`, `fact_*`) plus the Seller Index framework: `fact_seller_metrics` → `fact_seller_index` → `fact_olist_financial_scenarios` |
 
- - Marketplace integration: sellers can distribute their products across multiple e-commerce platforms (such as Amazon, Mercado Livre, or Olist Shop) without managing each marketplace separately.
+The Power BI report is built on top of the gold tables.
 
- - Order management: orders from different channels are centralized in a single system, allowing automatic inventory updates and real-time notifications about new sales or status changes.
+## Seller Operational Index
 
- - Customer service management: the platform centralizes communication with customers and manages returns, refunds, and complaints.
+For every seller and every day, the index is calculated in five steps:
 
- - Marketing and analytics tools: sellers gain access to performance reports, product visibility tools, and data-driven recommendations designed to improve sales performance.
+1. **Point-in-time metrics.** Late-to-carrier rate and claim rate (reviews below 3) over a 60-day window that ends 2 days before the reference date. Reviews are stored as a versioned history, so each date only uses the information available at that moment. Reviews linked to late deliveries caused by the carrier are excluded, since they do not depend on the seller (73% of late deliveries are the carrier's fault).
+2. **Bayesian smoothing.** Rates are pulled towards the marketplace average with 8 virtual observations, so a single late order does not ruin the score of a new seller.
+3. **Thresholds and caps.** Penalties start above 1% late shipments and 5% claims, and are capped at 20x and 10x the threshold.
+4. **Penalty functions.** Three functional forms are compared: linear, quadratic and logistic.
+5. **Index and incentive.** Late shipments weigh twice as much as claims. The weighted penalty is mapped to a 1–5 score, which sets OLIST's share of the shipping cost:
 
-From a data perspective, these activities generate large volumes of transactional data such as orders, payments, deliveries, and customer interactions. This type of operational information is typically associated with Online Transaction Processing (OLTP) systems, where the priority is efficient transaction handling and data integrity.
+| Seller Index | 5 | 4 | 3 | 1–2 | No index (new sellers) |
+|---|---|---|---|---|---|
+| OLIST share of shipping cost | 50% | 40% | 30% | 15% | 50% (baseline split) |
 
-## Olist Business Model
+### Choosing the index version
 
-Olist generates revenue through a commission-based marketplace model. For each transaction processed through the platform, Olist charges sellers:
+The three versions are compared with explicit criteria: they must rank sellers by future risk, must not penalize low-volume sellers more than high-volume ones, must be stable over time, and should generate savings without giving the maximum score to almost everyone.
 
- - A fixed fee per item sold
+| | Linear | Quadratic | Logistic |
+|---|---|---|---|
+| Future late rate, index 5 / index 1–2 | 5.1% / 22.2% | 5.6% / 23.7% | 5.1% / 21.4% |
+| Low-volume sellers (≤3 orders) with index ≤3 | 15.2% | 15.2% | 29.9% |
+| High-volume sellers (≥20 orders) with index ≤3 | 30.4% | 17.5% | 25.2% |
+| Index changes per seller and month | 0.52 | 0.41 | 0.87 |
+| Seller-days with index 5 | 64.0% | 76.8% | 42.2% |
+| Savings vs baseline split | R$128k (19.1%) | R$85k (12.7%) | R$122k (18.3%) |
 
- - A commission of approximately 21% of the product price
+The **linear index** is selected: the logistic version penalizes low-volume sellers more often, and the quadratic one gives the maximum score to almost four out of five sellers.
 
-However, part of this commission is used to cover logistics costs, particularly shipping expenses. These logistics costs depend in part on seller performance, which Olist evaluates through internal operational metrics. Poor seller performance can generate delayed deliveries, cancellations, or customer dissatisfaction, which ultimately harms both platform reputation and operational profitability. 
+The full design, calibration (time window, smoothing, thresholds) and comparison are in [`analysis/seller_index_analysis.ipynb`](analysis/seller_index_analysis.ipynb). The notebook uses the same functions as the production jobs, with its own parameters, so alternative calibrations can be tested without touching the production tables.
 
-The key challenge is therefore to design performance metrics that align seller incentives with the economic objectives of the platform. This project explores this dichotomy in the construction of a *Seller Operational Index* that captures several aspects of seller behavior. Using historical marketplace data, the goal is to evaluate how different index constructions and thresholds affect seller classification, the distribution of transport costs between seller and OLIST, and the overall marketplace revenue.
+## Dashboards
 
-# Seller Operational Index
+**Logistics**: delivery performance, reasons for undelivered orders and the impact of late deliveries on reviews (2.5 vs 4.2 average score).
 
+![Logistics](power_bi/screenshots/01_logistics.png)
 
-The Seller Operational Index is designed as a composite scoring system based on three operational dimensions: late shipments, order cancellations, and customer dissatisfaction (low review scores). The index serves two main purposes:
+**Financial analysis – baseline**: revenue, commissions and who pays the shipping costs under the 50/50 baseline split.
 
- - First, it acts as an incentive mechanism to influence seller behavior. Olist partially subsidizes shipping costs depending on seller performance. Sellers with higher operational reliability receive greater support in logistics costs, which encourages them to improve fulfillment quality and delivery performance.
+![Financial Analysis - Baseline](power_bi/screenshots/02_financial_baseline.png)
 
- - Second, the index directly affects Olist’s revenue structure. Since Olist shares part of the logistics costs with sellers, the way the index is constructed determines how these costs are distributed across the marketplace. This introduces several important trade-offs.
+## Data
 
-To align the incentives of seller and platform, Sellers with better Seller Operational Index  are granted with increaseally high discounts in the percentage of the shipping cost they have to cover.
+[Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) (Kaggle): ~100k orders placed between 2016 and 2018, with customers, sellers, products, payments, reviews and geolocation.
 
-Using historical transactional data, the project evaluates how different specifications of the Seller Index affect the distribution of shipping cost burden between sellers and Olist as well as the capacity of the metric to effectively incentivice sellers to improve their operational performance.
+<details>
+<summary>Source data model</summary>
 
-An in dept analysis of index construction can be found in: `analysis/seller_index.ipynb`
+![Olist data schema](data/data_schema.png)
 
-## Calibration and Design Choices
+</details>
 
-A key part of the model is the calibration of structural parameters that ensure robustness and interpretability:
+## Repository structure
 
-- Time window selection: definition of the observation window used to compute operational metrics
-- Smoothing mechanisms: reduction of volatility in seller-level metrics to avoid distortions in low-volume sellers
-- Threshold definition: establishment of minimum performance levels for meaningful classification
-- Capping rules: control of extreme values to prevent outlier dominance in the scoring distribution
+```
+├── analysis/
+│   └── seller_index_analysis.ipynb       Seller Index design, calibration and version selection
+├── data_pipeline/
+│   ├── 01_bronze/                        Raw ingestion (SQL)
+│   ├── 02_silver/                        Cleaning and standardization (SQL)
+│   ├── 03_gold/                          Star schema and financial scenarios (SQL)
+│   │   └── seller_index/                 Seller Index jobs and shared PySpark functions
+│   └── data_pipeline.png
+├── data/                                 Source data model (raw data is not versioned)
+└── power_bi/screenshots/                 Power BI report pages
+```
 
-These design choices are critical to ensure that the index is stable, comparable across time, and economically interpretable.
+## How to run it
 
-## Functional Specifications (Secondary Layer)
+1. Download the dataset from Kaggle and upload the CSV files to the Databricks volume `/Volumes/marketplace_olist/default/raw_data/`.
+2. Run the SQL scripts in `01_bronze`, `02_silver` and `03_gold` (catalog `marketplace_olist`).
+3. Run the Seller Index jobs `si1_fact_seller_metrics` and `si2_fact_seller_index`, and then `fact_olist_financial_scenarios.sql`. Production parameters are defined in `seller_index/config_prod.py`.
+4. Open `analysis/seller_index_analysis.ipynb` to explore the index with different parameters.
 
-Once the calibration framework is defined, different functional transformations are applied to map operational metrics into a final score:
+## Tech stack
 
-- Linear specification
-- Quadratic specification
-- Logistic specification
+Databricks · PySpark · Spark SQL · Delta Lake · Python (pandas, matplotlib, seaborn) · Power BI · Git
 
-## Financial impact
-Finally, seller index evaluation and historical orders are linked, allowing not only to compare the financial impact of the different versions of the index, but also to easily adress how changes in calibration, thresholds, or functional forms would have influenced Olist’s profitability and cost structure under identical historical market conditions.
+## Author
 
-#  Tech Stack
-- Python (Pandas, NumPy, Scikit-learn)
-
-- PySpark
-
-- SQL
-
-- Databricks
-
-- Power BI
-
-- Git/GitHub
+**Pablo Martínez Coro** · [LinkedIn](https://www.linkedin.com/in/pablo-martinez-coro)

@@ -22,9 +22,12 @@ SELECT
         AS DECIMAL(10,2)
     ) AS freight_ratio,
 
-    -- Date
+    -- Dates
     o.order_purchase_timestamp,
+    CAST(o.order_purchase_timestamp AS DATE) AS order_purchase_date,
     oi.shipping_limit_date
+
+
 
 FROM marketplace_olist.silver.order_items oi
 
